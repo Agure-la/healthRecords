@@ -9,6 +9,9 @@ target/
 .idea/
 .vscode/
 
+# Spring Boot config files
+/src/main/resources/application.properties
+
 # OS
 .DS_Store
 

@@ -1,35 +1,70 @@
-OHS Digital Health Backend Exercise – Starter
+# Patient Management API
 
-Prerequisites
-- Java 17+
-- Maven 3.8+
+This is a Spring Boot application that provides RESTful endpoints for managing patients, their encounters, and observations. The application uses **PostgreSQL** as the database and provides **Swagger UI** documentation for easy API exploration.
 
-Getting Started
-1. Navigate to starter-project
-2. Run: mvn clean spring-boot:run
-3. API runs at http://localhost:8080
+---
 
-Tech Stack
-- Spring Boot (Web, Data JPA, Validation)
-- H2 database (in‑memory)
+## Technologies
 
-Configuration
-- See starter-project/src/main/resources/application.properties
-- Change DB or port as needed
+- Java 22
+- Spring Boot 3.x
+- Spring Data JPA
+- PostgreSQL
+- Swagger/OpenAPI 3
+- Maven
 
-Development Notes
-- Use layered architecture (controller → service → repository)
-- Prefer DTOs at API boundary
-- Add Bean Validation annotations and exception handling
+---
 
-API Documentation
-- Option A: Add springdoc‑openapi‑starter‑webmvc‑ui and expose Swagger UI at /swagger-ui.html
-- Option B: Document endpoints with examples in README or EXERCISE.md
+## Features / Endpoints
 
-Testing
-- JUnit 5 and Spring Boot test starter are available once added to pom
-- Include unit tests for services and one controller/slice test
+### Patients
+- **POST** `/api/patients` — Create a new patient (with optional encounters and observations)
+- **GET** `/api/patients/{id}` — Retrieve patient details
+- **PUT** `/api/patients/{id}` — Update patient details
+- **DELETE** `/api/patients/{id}` — Delete patient and related data
+- **GET** `/api/patients` — Search patients with filters:
+    - `family` — family name
+    - `given` — given name
+    - `identifier` — patient identifier
+    - `birthDate` — exact date of birth
+    - `startDate` / `endDate` — birth date range
+    - `page` / `size` / `sort` — pagination and sorting
+- **GET** `/api/patients/{id}/encounters` — Get paginated encounters for a patient
+- **GET** `/api/patients/{id}/observations` — Get all observations for a patient
 
-Submission
-- Include run instructions and any design notes in your project README
+### Encounters
+- Returned as part of patient details
+- Includes start/end times, class, and linked observations
+
+### Observations
+- Can be linked to an encounter or directly to a patient
+- Includes code, value, effective date, and references to patient and encounter
+
+---
+
+## Database Configuration (PostgreSQL)
+
+Configure `application.yml`:
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/digital_health
+    username: yourusername
+    password: yourpassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 9000
+
 
