@@ -1,5 +1,10 @@
 package org.example.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +33,7 @@ import java.util.UUID;
 @Validated
 @RestController
 @RequestMapping("/api/patients")
+@Tag(name = "Patients", description = "Endpoints for managing patients, encounters, and observations")
 @RequiredArgsConstructor
 public class PatientController {
 
@@ -39,6 +45,7 @@ public class PatientController {
 
     private final ObservationService observationService;
 
+    @Operation(summary = "Create a new patient", description = "Registers a new patient along with optional encounters and observations.")
     @PostMapping
     public ResponseEntity<ApiResponse<PatientResponse>> createPatient(@Valid @RequestBody PatientRequest request) {
         log.info("Creating new patient with identifier: {}", request.getIdentifier());
@@ -46,6 +53,7 @@ public class PatientController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Patient created successfully", patient));
     }
 
+    @Operation(summary = "Fetch patient by ID", description = "Retrieves patient details along with associated information.")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<PatientResponse>> getPatientById(@PathVariable UUID id) {
         log.info("Fetching patient with ID: {}", id);
@@ -53,6 +61,7 @@ public class PatientController {
         return ResponseEntity.ok(ApiResponse.success("Patient retrieved successfully", patient));
     }
 
+    @Operation(summary = "Update patient information", description = "Updates an existing patient's demographic and clinical information.")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<PatientResponse>> updatePatient(@PathVariable UUID id, @Valid @RequestBody PatientRequest request) {
         log.info("Updating patient with ID: {}", id);
@@ -60,6 +69,7 @@ public class PatientController {
         return ResponseEntity.ok(ApiResponse.success("Patient updated successfully", updatedPatient));
     }
 
+    @Operation(summary = "Delete a patient", description = "Deletes a patient record and all associated encounters and observations.")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deletePatient(@PathVariable UUID id) {
         log.info("Deleting patient with ID: {}", id);
@@ -67,6 +77,7 @@ public class PatientController {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(ApiResponse.success("Patient deleted successfully", null));
     }
 
+    @Operation(summary = "Search patients", description = "Search patients using filters such as name, identifier, or date of birth.")
     @GetMapping
     public ResponseEntity<ApiResponse<Page<PatientResponse>>> searchPatients(@RequestParam(required = false) String family, @RequestParam(required = false) String given,
             @RequestParam(required = false) String identifier, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate birthDate,
@@ -80,6 +91,7 @@ public class PatientController {
         return ResponseEntity.ok(ApiResponse.success("Patient search successful", patients));
     }
 
+    @Operation(summary = "Get encounters for a patient", description = "Retrieves all encounters for the given patient ID with pagination.")
     @GetMapping("/{id}/encounters")
     public ResponseEntity<ApiResponse<Page<Encounter>>> getPatientEncounters(@PathVariable UUID id, @RequestParam(defaultValue = DEFAULT_PAGE) int page,
             @RequestParam(defaultValue = DEFAULT_PAGE_SIZE) int size) {
@@ -105,6 +117,7 @@ public class PatientController {
         return Sort.by("familyName").ascending();
     }
 
+    @Operation(summary = "Get observations for a patient", description = "Fetches all observations recorded for a specific patient.")
     @GetMapping("/{id}/observations")
     public ResponseEntity<ApiResponse<List<ObservationResponse>>> getPatientObservations(@PathVariable("id") UUID patientId) {
         log.info("GET /api/patients/{}/observations called", patientId);

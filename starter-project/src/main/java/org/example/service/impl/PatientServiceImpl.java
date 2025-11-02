@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -47,38 +48,74 @@ public class PatientServiceImpl implements PatientService {
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + id));
     }
 
+    private void validateUniqueFields(PatientRequest request) {
+        if (patientRepository.existsByIdentifier(request.getIdentifier())) {
+            throw new IllegalArgumentException(
+                    "Patient with identifier '" + request.getIdentifier() + "' already exists"
+            );
+        }
+
+        if (patientRepository.existsByUsername(request.getUsername())) {
+            throw new IllegalArgumentException(
+                    "Patient with username '" + request.getUsername() + "' already exists"
+            );
+        }
+
+        if (patientRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException(
+                    "Patient with email '" + request.getEmail() + "' already exists"
+            );
+        }
+    }
+
     @Override
     @Transactional
     public PatientResponse createPatient(PatientRequest request) {
         log.info("Creating new patient with identifier: {}", request.getIdentifier());
 
-        // validation
-        if (patientRepository.existsByIdentifier(request.getIdentifier())) {
-            throw new IllegalArgumentException("Patient with identifier " + request.getIdentifier() + " already exists");
+        // 1. Validate uniqueness
+        validateUniqueFields(request);
+
+        // 2. Map and save patient
+        Patient patient = new Patient();
+        patient.setIdentifier(request.getIdentifier());
+        patient.setUsername(request.getUsername());
+        patient.setEmail(request.getEmail());
+        patient.setGender(request.getGender());
+        patient.setCreatedAt(LocalDateTime.now());
+        patient.setUpdatedAt(LocalDateTime.now());
+        patient.setGivenName(request.getGivenName());
+        patient.setFamilyName(request.getFamilyName());
+        patient.setBirthDate(request.getBirthDate());
+
+        patient = patientRepository.saveAndFlush(patient);
+
+        // Initialize collections
+        if (patient.getEncounters() == null) {
+            patient.setEncounters(new ArrayList<>());
         }
-        if (patientRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("Patient with this username already exists");
-        }
-        if (patientRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Patient with this email already exists");
+        if (patient.getObservations() == null) {
+            patient.setObservations(new ArrayList<>());
         }
 
-        // map base patient
-        Patient patient = patientMapper.toEntity(request);
-
-        // handle encounters
-        if (request.getEncounters() != null && !request.getEncounters().isEmpty()) {
+        // 3. Handle encounters
+        if (request.getEncounters() != null) {
             for (PatientRequest.EncounterRequest encReq : request.getEncounters()) {
                 Encounter encounter = new Encounter();
                 encounter.setPatient(patient);
                 encounter.setStart(encReq.getStart());
                 encounter.setEndTime(encReq.getEndTime());
-                encounter.setEncounterClass(
-                        Encounter.EncounterClass.valueOf(encReq.getEncounterClass().toUpperCase())
-                );
+                encounter.setEncounterClass(Encounter.EncounterClass.valueOf(encReq.getEncounterClass().toUpperCase()));
 
-                // handle encounter observations
-                if (encReq.getObservations() != null && !encReq.getObservations().isEmpty()) {
+                // Initialize observations collection
+                if (encounter.getObservations() == null) {
+                    encounter.setObservations(new ArrayList<>());
+                }
+
+                encounter = encounterRepository.saveAndFlush(encounter);
+
+                // Handle observations for this encounter
+                if (encReq.getObservations() != null) {
                     for (PatientRequest.ObservationRequest obsReq : encReq.getObservations()) {
                         Observation obs = new Observation();
                         obs.setPatient(patient);
@@ -86,28 +123,34 @@ public class PatientServiceImpl implements PatientService {
                         obs.setCode(obsReq.getCode());
                         obs.setValue(obsReq.getValue());
                         obs.setEffectiveDateTime(obsReq.getEffectiveDateTime());
+
+                        obs = observationRepository.saveAndFlush(obs);
+
+                        // Add observation to encounter in-place
                         encounter.getObservations().add(obs);
                     }
                 }
 
+                // Add encounter to patient in-place
                 patient.getEncounters().add(encounter);
             }
         }
 
-        // handle direct observations
-        if (request.getObservations() != null && !request.getObservations().isEmpty()) {
+        // 4. Handle direct patient observations
+        if (request.getObservations() != null) {
             for (PatientRequest.ObservationRequest obsReq : request.getObservations()) {
                 Observation obs = new Observation();
                 obs.setPatient(patient);
                 obs.setCode(obsReq.getCode());
                 obs.setValue(obsReq.getValue());
                 obs.setEffectiveDateTime(obsReq.getEffectiveDateTime());
+
+                obs = observationRepository.saveAndFlush(obs);
+
+                // Add to patient in-place
                 patient.getObservations().add(obs);
             }
         }
-
-        // saving patient cascades encounters & observations
-        patient = patientRepository.save(patient);
 
         log.info("Created patient with ID: {}", patient.getId());
         return patientMapper.toResponse(patient);

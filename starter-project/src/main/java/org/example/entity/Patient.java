@@ -4,10 +4,14 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "patients", indexes = {
@@ -17,7 +21,22 @@ import java.util.List;
     })
 @Getter
 @Setter
-public class Patient extends BaseEntity {
+public class Patient {
+
+    @Id
+    @GeneratedValue
+    private UUID id;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @Version
+    private Long version;
 
     @NotBlank(message = "Identifier is required")
     @Size(max = 50, message = "Identifier must be less than 50 characters")
