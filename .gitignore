@@ -9,9 +9,12 @@ target/
 .idea/
 .vscode/
 
-# Spring Boot config files
-/src/main/resources/application.properties
+# Ignore local config
+/src/main/resources/application*.properties
+/src/main/resources/application*.yml
 
+# Ignore build output
+/target/
 # OS
 .DS_Store
 
