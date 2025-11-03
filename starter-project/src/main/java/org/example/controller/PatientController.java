@@ -8,10 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.dto.ApiResponse;
-import org.example.dto.ObservationResponse;
-import org.example.dto.PatientRequest;
-import org.example.dto.PatientResponse;
+import org.example.dto.*;
 import org.example.entity.Encounter;
 import org.example.service.ObservationService;
 import org.example.service.PatientService;
@@ -93,11 +90,11 @@ public class PatientController {
 
     @Operation(summary = "Get encounters for a patient", description = "Retrieves all encounters for the given patient ID with pagination.")
     @GetMapping("/{id}/encounters")
-    public ResponseEntity<ApiResponse<Page<Encounter>>> getPatientEncounters(@PathVariable UUID id, @RequestParam(defaultValue = DEFAULT_PAGE) int page,
-            @RequestParam(defaultValue = DEFAULT_PAGE_SIZE) int size) {
+    public ResponseEntity<ApiResponse<Page<EncounterResponse>>> getPatientEncounters(@PathVariable UUID id, @RequestParam(defaultValue = DEFAULT_PAGE) int page,
+                                                                                     @RequestParam(defaultValue = DEFAULT_PAGE_SIZE) int size) {
         log.info("Fetching encounters for patient ID: {}", id);
         Pageable pageable = PageRequest.of(page, size, Sort.by("start").descending());
-        Page<Encounter> encounters = patientService.getPatientEncounters(id, pageable);
+        Page<EncounterResponse> encounters = patientService.getPatientEncounters(id, pageable);
 
         return ResponseEntity.ok(ApiResponse.success("Encounters retrieved successfully", encounters));
     }

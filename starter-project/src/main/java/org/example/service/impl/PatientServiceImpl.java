@@ -3,6 +3,8 @@ package org.example.service.impl;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.dto.EncounterResponse;
+import org.example.dto.ObservationResponse;
 import org.example.dto.PatientRequest;
 import org.example.dto.PatientResponse;
 import org.example.entity.Observation;
@@ -73,10 +75,8 @@ public class PatientServiceImpl implements PatientService {
     public PatientResponse createPatient(PatientRequest request) {
         log.info("Creating new patient with identifier: {}", request.getIdentifier());
 
-        // 1. Validate uniqueness
         validateUniqueFields(request);
 
-        // 2. Map and save patient
         Patient patient = new Patient();
         patient.setIdentifier(request.getIdentifier());
         patient.setUsername(request.getUsername());
@@ -90,7 +90,6 @@ public class PatientServiceImpl implements PatientService {
 
         patient = patientRepository.saveAndFlush(patient);
 
-        // Initialize collections
         if (patient.getEncounters() == null) {
             patient.setEncounters(new ArrayList<>());
         }
@@ -98,7 +97,6 @@ public class PatientServiceImpl implements PatientService {
             patient.setObservations(new ArrayList<>());
         }
 
-        // 3. Handle encounters
         if (request.getEncounters() != null) {
             for (PatientRequest.EncounterRequest encReq : request.getEncounters()) {
                 Encounter encounter = new Encounter();
@@ -107,14 +105,11 @@ public class PatientServiceImpl implements PatientService {
                 encounter.setEndTime(encReq.getEndTime());
                 encounter.setEncounterClass(Encounter.EncounterClass.valueOf(encReq.getEncounterClass().toUpperCase()));
 
-                // Initialize observations collection
                 if (encounter.getObservations() == null) {
                     encounter.setObservations(new ArrayList<>());
                 }
 
                 encounter = encounterRepository.saveAndFlush(encounter);
-
-                // Handle observations for this encounter
                 if (encReq.getObservations() != null) {
                     for (PatientRequest.ObservationRequest obsReq : encReq.getObservations()) {
                         Observation obs = new Observation();
@@ -123,20 +118,14 @@ public class PatientServiceImpl implements PatientService {
                         obs.setCode(obsReq.getCode());
                         obs.setValue(obsReq.getValue());
                         obs.setEffectiveDateTime(obsReq.getEffectiveDateTime());
-
                         obs = observationRepository.saveAndFlush(obs);
-
-                        // Add observation to encounter in-place
                         encounter.getObservations().add(obs);
                     }
                 }
-
-                // Add encounter to patient in-place
                 patient.getEncounters().add(encounter);
             }
         }
 
-        // 4. Handle direct patient observations
         if (request.getObservations() != null) {
             for (PatientRequest.ObservationRequest obsReq : request.getObservations()) {
                 Observation obs = new Observation();
@@ -144,10 +133,7 @@ public class PatientServiceImpl implements PatientService {
                 obs.setCode(obsReq.getCode());
                 obs.setValue(obsReq.getValue());
                 obs.setEffectiveDateTime(obsReq.getEffectiveDateTime());
-
                 obs = observationRepository.saveAndFlush(obs);
-
-                // Add to patient in-place
                 patient.getObservations().add(obs);
             }
         }
@@ -257,17 +243,76 @@ public class PatientServiceImpl implements PatientService {
         }, pageable).map(patientMapper::toResponse);
     }
 
+    public static EncounterResponse convertToEncounterResponse(Encounter encounter) {
+        if (encounter == null) {
+            return null;
+        }
+
+        return EncounterResponse.builder()
+                .id(encounter.getId())
+                .start(encounter.getStart())
+                .endTime(encounter.getEndTime())
+                .encounterClass(encounter.getEncounterClass() != null ? encounter.getEncounterClass().name() : null)
+                .createdAt(encounter.getCreatedAt())
+                .updatedAt(encounter.getUpdatedAt())
+                .patientId(encounter.getPatient() != null ? encounter.getPatient().getId() : null)
+                .observations(
+                        encounter.getObservations() != null
+                                ? encounter.getObservations().stream()
+                                .map(obs -> ObservationResponse.builder()
+                                        .id(obs.getId())
+                                        .patientId(obs.getPatient() != null ? obs.getPatient().getId() : null)
+                                        .encounterId(obs.getEncounter() != null ? obs.getEncounter().getId() : null)
+                                        .code(obs.getCode())
+                                        .value(obs.getValue())
+                                        .effectiveDateTime(obs.getEffectiveDateTime())
+                                        .build())
+                                .toList()
+                                : List.of()
+                )
+                .build();
+    }
+
     @Override
     @Transactional(readOnly = true)
-    public Page<Encounter> getPatientEncounters(UUID patientId, Pageable pageable) {
+    public Page<EncounterResponse> getPatientEncounters(UUID patientId, Pageable pageable) {
         log.debug("Fetching encounters for patient ID: {}", patientId);
-        
+
         if (!patientRepository.existsById(patientId)) {
             throw new ResourceNotFoundException("Patient not found with id: " + patientId);
         }
-        
-        return encounterRepository.findByPatientId(patientId, pageable);
+
+        return encounterRepository.findByPatientId(patientId, pageable)
+                .map(this::toEncounterResponse);
     }
+
+    private EncounterResponse toEncounterResponse(Encounter encounter) {
+        EncounterResponse response = new EncounterResponse();
+        response.setId(encounter.getId());
+        response.setPatientId(encounter.getPatient() != null ? encounter.getPatient().getId() : null);
+        response.setStart(encounter.getStart());
+        response.setEndTime(encounter.getEndTime());
+        response.setEncounterClass(String.valueOf(encounter.getEncounterClass()));
+
+        if (encounter.getObservations() != null) {
+            response.setObservations(
+                    encounter.getObservations().stream().map(obs -> {
+                        ObservationResponse o = new ObservationResponse();
+                        o.setId(obs.getId());
+                        o.setPatientId(obs.getPatient() != null ? obs.getPatient().getId() : null);
+                        o.setEncounterId(obs.getEncounter() != null ? obs.getEncounter().getId() : null);
+                        o.setCode(obs.getCode());
+                        o.setValue(obs.getValue());
+                        o.setEffectiveDateTime(obs.getEffectiveDateTime());
+                        return o;
+                    }).toList()
+            );
+        }
+
+        return response;
+    }
+
+
 
     @Override
     public Patient getPatientEntity(Long id) {

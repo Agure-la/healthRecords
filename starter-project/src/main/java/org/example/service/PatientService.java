@@ -1,5 +1,6 @@
 package org.example.service;
 
+import org.example.dto.EncounterResponse;
 import org.example.dto.PatientRequest;
 import org.example.dto.PatientResponse;
 import org.example.exception.ResourceNotFoundException;
@@ -80,7 +81,7 @@ public interface PatientService {
      * @return Page of encounters
      * @throws ResourceNotFoundException if patient is not found
      */
-    Page<Encounter> getPatientEncounters(UUID patientId, Pageable pageable);
+    Page<EncounterResponse> getPatientEncounters(UUID patientId, Pageable pageable);
     
     /**
      * Get patient entity by ID (for internal use).

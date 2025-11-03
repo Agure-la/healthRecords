@@ -26,7 +26,6 @@ public class ObservationServiceImpl implements ObservationService {
     public List<ObservationResponse> getObservationsByPatientId(UUID patientId) {
         log.info("Fetching observations for patient ID: {}", patientId);
 
-        // Validate that patient exists
         patientRepository.findById(patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + patientId));
 
