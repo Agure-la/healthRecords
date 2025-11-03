@@ -41,14 +41,81 @@ public class PatientServiceImpl implements PatientService {
     private final PatientMapper patientMapper;
     private final ObservationRepository observationRepository;
 
+    private PatientResponse convertToPatientResponse(Patient patient) {
+        if (patient == null) {
+            return null;
+        }
+
+        PatientResponse response = new PatientResponse();
+        response.setId(patient.getId());
+        response.setIdentifier(patient.getIdentifier());
+        response.setGivenName(patient.getGivenName());
+        response.setFamilyName(patient.getFamilyName());
+        response.setUsername(patient.getUsername());
+        response.setEmail(patient.getEmail());
+        response.setBirthDate(patient.getBirthDate());
+        response.setGender(patient.getGender());
+        response.setCreatedAt(patient.getCreatedAt());
+        response.setUpdatedAt(patient.getUpdatedAt());
+
+        if (patient.getEncounters() != null) {
+            List<EncounterResponse> encounterResponses = patient.getEncounters().stream().map(encounter -> {
+                EncounterResponse er = new EncounterResponse();
+                er.setId(encounter.getId());
+                er.setPatientId(patient.getId());
+                er.setStart(encounter.getStart());
+                er.setEndTime(encounter.getEndTime());
+                er.setEncounterClass(String.valueOf(encounter.getEncounterClass()));
+
+                if (encounter.getObservations() != null) {
+                    List<ObservationResponse> observationResponses = encounter.getObservations().stream().map(obs -> {
+                        ObservationResponse or = new ObservationResponse();
+                        or.setId(obs.getId());
+                        or.setPatientId(patient.getId());
+                        or.setEncounterId(encounter.getId());
+                        or.setCode(obs.getCode());
+                        or.setValue(obs.getValue());
+                        or.setEffectiveDateTime(obs.getEffectiveDateTime());
+                        return or;
+                    }).toList();
+
+                    er.setObservations(observationResponses);
+                }
+
+                return er;
+            }).toList();
+
+            response.setEncounters(encounterResponses);
+        }
+
+        if (patient.getObservations() != null) {
+            List<ObservationResponse> patientObservations = patient.getObservations().stream().map(obs -> {
+                ObservationResponse or = new ObservationResponse();
+                or.setId(obs.getId());
+                or.setPatientId(patient.getId());
+                or.setEncounterId(obs.getEncounter() != null ? obs.getEncounter().getId() : null);
+                or.setCode(obs.getCode());
+                or.setValue(obs.getValue());
+                or.setEffectiveDateTime(obs.getEffectiveDateTime());
+                return or;
+            }).toList();
+
+            response.setObservations(patientObservations);
+        }
+        return response;
+    }
+
+
     @Override
     @Transactional(readOnly = true)
     public PatientResponse getPatientById(UUID id) {
         log.debug("Fetching patient with ID: {}", id);
-        return patientRepository.findById(id)
-                .map(patientMapper::toResponse)
+        Patient patient = patientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found with id: " + id));
+
+        return convertToPatientResponse(patient);
     }
+
 
     private void validateUniqueFields(PatientRequest request) {
         if (patientRepository.existsByIdentifier(request.getIdentifier())) {
@@ -139,7 +206,7 @@ public class PatientServiceImpl implements PatientService {
         }
 
         log.info("Created patient with ID: {}", patient.getId());
-        return patientMapper.toResponse(patient);
+        return convertToPatientResponse(patient);
     }
 
 
@@ -186,7 +253,7 @@ public class PatientServiceImpl implements PatientService {
         }
         Patient updatedPatient = patientRepository.save(existingPatient);
         log.info("Updated patient with ID: {}", id);
-        return patientMapper.toResponse(updatedPatient);
+        return convertToPatientResponse(updatedPatient);
     }
 
     @Override
